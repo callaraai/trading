@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Forex Agent — Trader Intake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #181818;
+    --border: rgba(255,255,255,0.08);
+    --border-active: rgba(255,255,255,0.3);
+    --text: #f0ede8;
+    --text-muted: rgba(240,237,232,0.45);
+    --text-dim: rgba(240,237,232,0.25);
+    --accent: #c8f064;
+    --accent-dark: #9bbd3e;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 400;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 2.5rem 2rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 3rem;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .brand-mark svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .brand-name {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  .nav-list {
+    list-style: none;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+
+  .nav-item:hover { background: var(--surface2); }
+
+  .nav-item.active {
+    background: var(--surface2);
+    border-color: var(--border-active);
+  }
+
+  .nav-item.done .nav-num {
+    background: var(--accent);
+    color: #0a0a0a;
+    border-color: var(--accent);
+  }
+
+  .nav-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+
+  .nav-item.active .nav-num {
+    border-color: var(--text);
+    color: var(--text);
+  }
+
+  .nav-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    transition: color 0.2s;
+    font-weight: 400;
+  }
+
+  .nav-item.active .nav-label { color: var(--text); }
+  .nav-item.done .nav-label { color: var(--text-muted); }
+
+  .sidebar-footer {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .progress-track {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+
+  /* MAIN */
+  .main {
+    padding: 3rem 4rem;
+    max-width: 760px;
+  }
+
+  .section {
+    display: none;
+    animation: fadeSlide 0.35s ease;
+  }
+
+  .section.active { display: block; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-title {
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .section-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    max-width: 520px;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2rem 0;
+  }
+
+  /* FORM ELEMENTS */
+  .q-group {
+    margin-bottom: 2rem;
+  }
+
+  .q-label {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .q-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+    font-family: var(--mono);
+  }
+
+  .q-input, .q-textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  .q-input:focus, .q-textarea:focus {
+    border-color: var(--border-active);
+  }
+
+  .q-input::placeholder, .q-textarea::placeholder {
+    color: var(--text-dim);
+  }
+
+  .q-textarea {
+    resize: vertical;
+    min-height: 90px;
+  }
+
+  /* CHIPS */
+  .chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-muted);
+    background: var(--surface);
+    user-select: none;
+    font-family: var(--sans);
+    white-space: nowrap;
+  }
+
+  .chip:hover {
+    border-color: var(--border-active);
+    color: var(--text);
+  }
+
+  .chip.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0a0a0a;
+    font-weight: 500;
+  }
+
+  /* RADIO CARDS */
+  .radio-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--surface);
+    user-select: none;
+  }
+
+  .radio-card:hover {
+    border-color: var(--border-active);
+    background: var(--surface2);
+  }
+
+  .radio-card.selected {
+    border-color: var(--accent);
+    background: rgba(200, 240, 100, 0.06);
+  }
+
+  .radio-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-active);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.15s;
+  }
+
+  .radio-card.selected .radio-indicator {
+    border-color: var(--accent);
+  }
+
+  .radio-card.selected .radio-indicator::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .radio-content { flex: 1; }
+
+  .radio-main {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .radio-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: var(--mono);
+  }
+
+  /* NAV BUTTONS */
+  .nav-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 11px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: var(--border-active);
+    color: var(--text);
+  }
+
+  .btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0a;
+    border-color: var(--accent);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #d9ff70;
+    border-color: #d9ff70;
+    color: #0a0a0a;
+  }
+
+  .step-indicator {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* COMPLETE SCREEN */
+  .complete {
+    display: none;
+    padding-top: 2rem;
+    animation: fadeSlide 0.4s ease;
+  }
+
+  .complete.active { display: block; }
+
+  .complete-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(200,240,100,0.1);
+    border: 1px solid rgba(200,240,100,0.3);
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .complete-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .complete h1 {
+    font-family: var(--display);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+  }
+
+  .complete p {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 480px;
+    margin-bottom: 2.5rem;
+  }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2.5rem;
+    font-size: 13px;
+  }
+
+  .summary-table tr {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table td {
+    padding: 11px 0;
+    vertical-align: top;
+  }
+
+  .summary-table td:first-child {
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    width: 160px;
+    padding-right: 20px;
+    padding-top: 13px;
+  }
+
+  .summary-table td:last-child {
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .dl-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar {
+      position: relative;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .brand { margin-bottom: 0; }
+    .nav-list {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px;
+      flex: none;
+    }
+    .nav-item { padding: 6px 10px; }
+    .nav-label { display: none; }
+    .sidebar-footer { display: none; }
+    .main { padding: 2rem 1.5rem; }
+    .section-title { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 16 16" fill="none">
+          <path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z" fill="#0a0a0a"/>
+        </svg>
+      </div>
+      <span class="brand-name">AGENT INTAKE</span>
+    </div>
+
+    <ul class="nav-list" id="nav-list">
+      <li class="nav-item active" data-section="1">
+        <span class="nav-num">1</span>
+        <span class="nav-label">Methodology</span>
+      </li>
+      <li class="nav-item" data-section="2">
+        <span class="nav-num">2</span>
+        <span class="nav-label">Risk rules</span>
+      </li>
+      <li class="nav-item" data-section="3">
+        <span class="nav-num">3</span>
+        <span class="nav-label">Sessions & pairs</span>
+      </li>
+      <li class="nav-item" data-section="4">
+        <span class="nav-num">4</span>
+        <span class="nav-label">Execution</span>
+      </li>
+      <li class="nav-item" data-section="5">
+        <span class="nav-num">5</span>
+        <span class="nav-label">Journaling</span>
+      </li>
+      <li class="nav-item" data-section="6">
+        <span class="nav-num">6</span>
+        <span class="nav-label">Alerts</span>
+      </li>
+      <li class="nav-item" data-section="7">
+        <span class="nav-num">7</span>
+        <span class="nav-label">Macro</span>
+      </li>
+      <li class="nav-item" data-section="8">
+        <span class="nav-num">8</span>
+        <span class="nav-label">Psychology</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="progress-label">
+        <span id="prog-text">0 of 8 complete</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="prog-fill"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- S1: METHODOLOGY -->
+    <div class="section active" id="s1">
+      <div class="section-eyebrow">Section 01 / 08</div>
+      <h2 class="section-title">Trading methodology</h2>
+      <p class="section-desc">This defines the agent's core scanner logic. The more specific you are, the more precisely the agent can identify valid setups on your behalf.</p>
+
+      <div class="q-group">
+        <label class="q-label">Primary trading framework</label>
+        <div class="q-hint">Select all that apply</div>
+        <div class="chip-grid" id="methodology">
+          <div class="chip" data-val="ict">ICT concepts</div>
+          <div class="chip" data-val="smc">Smart money / SMC</div>
+          <div class="chip" data-val="pa">Price action only</div>
+          <div class="chip" data-val="sr">Support & resistance</div>
+          <div class="chip" data-val="indicators">Indicators-based</div>
+          <div class="chip" data-val="algo">Algo / rules-based</div>
+          <div class="chip" data-val="wyckoff">Wyckoff</div>
+          <div class="chip" data-val="other-meth">Other</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Describe your entry setup</label>
+        <div class="q-hint">What conditions must all be present? This becomes the agent's exact scanner logic — be specific.</div>
+        <textarea class="q-textarea" id="entry-setup" placeholder="e.g. HTF bias established on daily, price raids buy-side liquidity, breaks structure on 5m, I enter on the FVG retest with confirmation candle..."></textarea>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Analysis timeframes</label>
+        <div class="q-hint">Select all timeframes you use (HTF bias through LTF entry)</div>
+        <div class="chip-grid" id="timeframes">
+          <div class="chip" data-val="w">Weekly</div>
+          <div class="chip" data-val="d">Daily</div>
+          <div class="chip" data-val="4h">4H</div>
+          <div class="chip" data-val="1h">1H</div>
+          <div class="chip" data-val="15m">15M</div>
+          <div class="chip" data-val="5m">5M</div>
+          <div class="chip" data-val="1m">1M</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Pre-entry invalidation</label>
+        <div class="q-hint">What tells you the trade idea is wrong before you enter?</div>
+        <textarea class="q-textarea" id="invalidation" placeholder="e.g. Price closes above previous swing high on 1H, or DXY breaks opposing structure, or setup takes more than 4 hours to develop..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" disabled>← Back</button>
+        <span class="step-indicator">1 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S2: RISK MANAGEMENT -->
+    <div class="section" id="s2">
+      <div class="section-eyebrow">Section 02 / 08</div>
+      <h2 class="section-title">Risk management</h2>
+      <p class="section-desc">The agent uses these rules to size positions, trigger warnings, and enforce circuit breakers.</p>
+
+      <div class="q-group">
+        <label class="q-label">Max risk per trade</label>
+        <div class="radio-grid" id="risk-per-trade">
+          <div class="radio-card" data-val="0.5"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">0.5% of account</div><div class="radio-sub">Conservative — common for prop firm challenges</div></div></div>
+          <div class="radio-card" data-val="1"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">1% of account</div><div class="radio-sub">Standard risk management benchmark</div></div></div>
+          <div class="radio-card" data-val="2"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">2% of account</div><div class="radio-sub">Aggressive — requires high win rate or R:R</div></div></div>
+          <div class="radio-card" data-val="custom-risk"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Custom</div><div class="radio-sub">I'll specify in notes</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Stop loss placement method</label>
+        <div class="radio-grid" id="stop-method">
+          <div class="radio-card" data-val="structure"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Below / above market structure</div></div></div>
+          <div class="radio-card" data-val="swing"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Previous swing high / low</div></div></div>
+          <div class="radio-card" data-val="atr"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">ATR-based</div></div></div>
+          <div class="radio-card" data-val="fixed-pips"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Fixed pips</div></div></div>
+          <div class="radio-card" data-val="other-stop"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Other</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Exit / take profit method</label>
+        <div class="radio-grid" id="exit-method">
+          <div class="radio-card" data-val="fixed-rr"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Fixed R:R target</div><div class="radio-sub">e.g. always 1:2, always 1:3</div></div></div>
+          <div class="radio-card" data-val="dynamic"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Dynamic — managed based on price action</div></div></div>
+          <div class="radio-card" data-val="partial"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Scale out at multiple targets</div></div></div>
+          <div class="radio-card" data-val="trailing"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Trailing stop</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Daily / weekly max loss limit</label>
+        <div class="q-hint">Agent will trigger a circuit breaker and halt signals when this is hit</div>
+        <input class="q-input" id="max-loss" type="text" placeholder="e.g. 3% daily, 6% weekly" />
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Do you move stops to breakeven?</label>
+        <div class="radio-grid" id="breakeven">
+          <div class="radio-card" data-val="yes-r"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Yes — at a specific R level</div><div class="radio-sub">e.g. once trade reaches 1:1, move stop to entry</div></div></div>
+          <div class="radio-card" data-val="yes-pa"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Yes — when price action signals it</div></div></div>
+          <div class="radio-card" data-val="no-be"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">No — I let it run to original stop</div></div></div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">2 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S3: SESSIONS & PAIRS -->
+    <div class="section" id="s3">
+      <div class="section-eyebrow">Section 03 / 08</div>
+      <h2 class="section-title">Sessions & pairs</h2>
+      <p class="section-desc">Defines where and when the agent focuses its attention — and when it monitors autonomously while you're unavailable.</p>
+
+      <div class="q-group">
+        <label class="q-label">Sessions you actively trade</label>
+        <div class="chip-grid" id="sessions">
+          <div class="chip" data-val="london">London open</div>
+          <div class="chip" data-val="ln-ny">London / NY overlap</div>
+          <div class="chip" data-val="ny">New York</div>
+          <div class="chip" data-val="asian">Asian session</div>
+          <div class="chip" data-val="all-sess">All sessions</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Pairs you trade</label>
+        <div class="q-hint">Select all that apply</div>
+        <div class="chip-grid" id="pairs">
+          <div class="chip" data-val="eurusd">EUR/USD</div>
+          <div class="chip" data-val="gbpusd">GBP/USD</div>
+          <div class="chip" data-val="usdjpy">USD/JPY</div>
+          <div class="chip" data-val="gbpjpy">GBP/JPY</div>
+          <div class="chip" data-val="audusd">AUD/USD</div>
+          <div class="chip" data-val="usdcad">USD/CAD</div>
+          <div class="chip" data-val="usdchf">USD/CHF</div>
+          <div class="chip" data-val="nzdusd">NZD/USD</div>
+          <div class="chip" data-val="xauusd">XAU/USD</div>
+          <div class="chip" data-val="all-majors">All majors</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Top priority pairs (1–3)</label>
+        <div class="q-hint">The agent will monitor these most closely</div>
+        <input class="q-input" id="top-pairs" type="text" placeholder="e.g. EUR/USD, GBP/USD, XAU/USD" />
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">When are you unavailable?</label>
+        <div class="q-hint">The agent will monitor autonomously and queue alerts during these windows</div>
+        <textarea class="q-textarea" id="unavailable" placeholder="e.g. Asian session (overnight), weekdays 9am–5pm EST (work hours), weekends..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">3 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S4: EXECUTION -->
+    <div class="section" id="s4">
+      <div class="section-eyebrow">Section 04 / 08</div>
+      <h2 class="section-title">Execution & broker</h2>
+      <p class="section-desc">Determines whether the agent operates in advisory or autonomous mode, and what platform constraints apply.</p>
+
+      <div class="q-group">
+        <label class="q-label">Trading platform</label>
+        <div class="radio-grid" id="platform">
+          <div class="radio-card" data-val="mt4"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">MetaTrader 4 (MT4)</div></div></div>
+          <div class="radio-card" data-val="mt5"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">MetaTrader 5 (MT5)</div></div></div>
+          <div class="radio-card" data-val="ctrader"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">cTrader</div></div></div>
+          <div class="radio-card" data-val="tv"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">TradingView</div></div></div>
+          <div class="radio-card" data-val="other-plat"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Other</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Broker API access</label>
+        <div class="radio-grid" id="api-access">
+          <div class="radio-card" data-val="yes-api"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Yes — I have API access</div></div></div>
+          <div class="radio-card" data-val="willing"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Not yet, but willing to set it up</div></div></div>
+          <div class="radio-card" data-val="no-api"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">No — alerts only, I'll execute manually</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Agent operating mode</label>
+        <div class="radio-grid" id="agent-mode">
+          <div class="radio-card" data-val="full-auto"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Fully autonomous</div><div class="radio-sub">Agent executes trades on my behalf when criteria are met</div></div></div>
+          <div class="radio-card" data-val="semi"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Semi-autonomous</div><div class="radio-sub">Agent alerts me, I confirm before execution</div></div></div>
+          <div class="radio-card" data-val="alerts-only"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Alerts only</div><div class="radio-sub">I execute all trades manually</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Prop firm account?</label>
+        <div class="radio-grid" id="prop-firm">
+          <div class="radio-card" data-val="yes-prop"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Yes — specific rules must be enforced</div></div></div>
+          <div class="radio-card" data-val="no-prop"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">No — personal account only</div></div></div>
+          <div class="radio-card" data-val="both"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Both prop firm and personal</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Prop firm rules to enforce</label>
+        <div class="q-hint">Leave blank if not applicable</div>
+        <textarea class="q-textarea" id="prop-rules" placeholder="e.g. Max 5% daily drawdown, max 10% total drawdown, no trading ±2min of high-impact news, no overnight holds, no weekend holds..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">4 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S5: JOURNALING -->
+    <div class="section" id="s5">
+      <div class="section-eyebrow">Section 05 / 08</div>
+      <h2 class="section-title">Journaling & tracking</h2>
+      <p class="section-desc">The agent auto-logs every trade. These settings define what gets captured and how performance is measured over time.</p>
+
+      <div class="q-group">
+        <label class="q-label">Do you currently journal your trades?</label>
+        <div class="radio-grid" id="journal-status">
+          <div class="radio-card" data-val="yes-j"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Yes — consistently</div></div></div>
+          <div class="radio-card" data-val="sometimes"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Sometimes</div></div></div>
+          <div class="radio-card" data-val="no-j"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">No — I want to start with the agent</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Current journaling tool</label>
+        <div class="chip-grid" id="journal-tool">
+          <div class="chip" data-val="tradezella">TradeZella</div>
+          <div class="chip" data-val="edgewonk">Edgewonk</div>
+          <div class="chip" data-val="tradervue">Tradervue</div>
+          <div class="chip" data-val="notion">Notion</div>
+          <div class="chip" data-val="sheet">Spreadsheet</div>
+          <div class="chip" data-val="none">None yet</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Auto-capture per trade</label>
+        <div class="q-hint">What data should the agent automatically log for every trade?</div>
+        <div class="chip-grid" id="capture-data">
+          <div class="chip" data-val="entry-exit">Entry / exit price & time</div>
+          <div class="chip" data-val="session">Session tag</div>
+          <div class="chip" data-val="setup-type">Setup type / label</div>
+          <div class="chip" data-val="r-mult">R-multiple result</div>
+          <div class="chip" data-val="chart-snap">Chart screenshot</div>
+          <div class="chip" data-val="news-flag">News event flag</div>
+          <div class="chip" data-val="emotion-tag">Emotion / behavior tag</div>
+          <div class="chip" data-val="pnl">P&amp;L in $ and %</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">How do you measure if your strategy is working?</label>
+        <textarea class="q-textarea" id="perf-metric" placeholder="e.g. I track win rate and average R monthly. I consider 40%+ win rate with 1:2 R as positive edge. I look at performance by session and setup type..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">5 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S6: ALERTS -->
+    <div class="section" id="s6">
+      <div class="section-eyebrow">Section 06 / 08</div>
+      <h2 class="section-title">Alerts & communication</h2>
+      <p class="section-desc">How and when the agent reaches you — whether you're watching the charts or sleeping.</p>
+
+      <div class="q-group">
+        <label class="q-label">Alert channels</label>
+        <div class="q-hint">Select all that apply</div>
+        <div class="chip-grid" id="alert-channel">
+          <div class="chip" data-val="sms">SMS / text</div>
+          <div class="chip" data-val="push">Push notification</div>
+          <div class="chip" data-val="telegram">Telegram</div>
+          <div class="chip" data-val="slack">Slack</div>
+          <div class="chip" data-val="email">Email</div>
+          <div class="chip" data-val="voice">Voice call</div>
+          <div class="chip" data-val="in-app">In-app only</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Alert threshold</label>
+        <div class="radio-grid" id="alert-threshold">
+          <div class="radio-card" data-val="a-plus"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">A+ only — all criteria fully met</div></div></div>
+          <div class="radio-card" data-val="b-plus"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">B-grade and above — partial criteria met</div></div></div>
+          <div class="radio-card" data-val="all"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">All setups — I'll filter myself</div></div></div>
+          <div class="radio-card" data-val="zone"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Alert when a pair enters a key zone to watch</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Alert verbosity</label>
+        <div class="radio-grid" id="alert-verbosity">
+          <div class="radio-card" data-val="concise"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Concise</div><div class="radio-sub">Pair, direction, entry zone only</div></div></div>
+          <div class="radio-card" data-val="detailed"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Detailed</div><div class="radio-sub">Include reasoning, invalidation, and targets</div></div></div>
+          <div class="radio-card" data-val="full"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Full brief</div><div class="radio-sub">Setup context, macro environment, correlated pairs</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">In-trade alerts</label>
+        <div class="q-hint">Should the agent notify you while a trade is active?</div>
+        <div class="chip-grid" id="intra-alerts">
+          <div class="chip" data-val="inv-warn">Thesis invalidation warning</div>
+          <div class="chip" data-val="partial">Partial profit suggestion</div>
+          <div class="chip" data-val="vol-spike">Volatility / spread spike</div>
+          <div class="chip" data-val="time-check">Stale trade time check</div>
+          <div class="chip" data-val="no-intra">No in-trade alerts</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">6 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S7: MACRO -->
+    <div class="section" id="s7">
+      <div class="section-eyebrow">Section 07 / 08</div>
+      <h2 class="section-title">Macro & market context</h2>
+      <p class="section-desc">Determines what external data the agent monitors alongside pure price action.</p>
+
+      <div class="q-group">
+        <label class="q-label">Do you incorporate fundamentals or news?</label>
+        <div class="radio-grid" id="fundamentals">
+          <div class="radio-card" data-val="purely-tech"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Purely technical — no fundamentals</div></div></div>
+          <div class="radio-card" data-val="news-aware"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">News-aware — I avoid trading around high-impact events</div></div></div>
+          <div class="radio-card" data-val="macro-driven"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Macro-driven — fundamentals guide directional bias</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Macro inputs to monitor</label>
+        <div class="chip-grid" id="macro-inputs">
+          <div class="chip" data-val="econ-cal">Economic calendar</div>
+          <div class="chip" data-val="dxy">DXY correlation</div>
+          <div class="chip" data-val="cot">COT data</div>
+          <div class="chip" data-val="retail-sent">Retail sentiment</div>
+          <div class="chip" data-val="cb-lang">Central bank language</div>
+          <div class="chip" data-val="pair-corr">Cross-pair correlation</div>
+          <div class="chip" data-val="none-macro">None — technical only</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">High-impact news handling</label>
+        <div class="radio-grid" id="news-block">
+          <div class="radio-card" data-val="block"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Suppress signals ±30 min of major events</div></div></div>
+          <div class="radio-card" data-val="warn"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Warn me but still send the signal</div></div></div>
+          <div class="radio-card" data-val="ignore"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Ignore — I'll manage news exposure myself</div></div></div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">7 / 8</span>
+        <button class="btn btn-primary" onclick="navigate(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S8: PSYCHOLOGY -->
+    <div class="section" id="s8">
+      <div class="section-eyebrow">Section 08 / 08</div>
+      <h2 class="section-title">Psychology & behavior</h2>
+      <p class="section-desc">The agent's behavioral guardrails — designed to protect you from your own worst tendencies.</p>
+
+      <div class="q-group">
+        <label class="q-label">Max trades per day / session</label>
+        <input class="q-input" id="max-trades" type="text" placeholder="e.g. Max 3 trades per day, max 1 per session" />
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">When do you know you overtrade or underperform?</label>
+        <div class="q-hint">The agent will use this to detect and flag behavioral patterns</div>
+        <textarea class="q-textarea" id="overtrade" placeholder="e.g. After a losing trade I tend to revenge trade. I overtrade during NY session when bored. I take low-quality setups on Fridays or when I'm down on the day..."></textarea>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Deviation flagging</label>
+        <div class="radio-grid" id="deviation">
+          <div class="radio-card" data-val="every"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Flag every time I deviate from criteria</div></div></div>
+          <div class="radio-card" data-val="pattern"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">Only flag when a pattern is detected</div><div class="radio-sub">e.g. 3 deviations in a week</div></div></div>
+          <div class="radio-card" data-val="no-flag"><div class="radio-indicator"></div><div class="radio-content"><div class="radio-main">No flagging — I'll self-monitor</div></div></div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Describe your A+ setup vs B-grade setup</label>
+        <div class="q-hint">If you've defined this distinction, it helps the agent grade signals before alerting you</div>
+        <textarea class="q-textarea" id="setup-grades" placeholder="e.g. A+ = all 3 timeframes aligned, liquidity swept, clean FVG, proper session timing. B-grade = only 2 TFs align, FVG is messy, or entry is mid-session..."></textarea>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Anything else the agent should know about you?</label>
+        <textarea class="q-textarea" id="other-notes" placeholder="Edge cases, personal rules, additional context, or preferences not covered above..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="navigate(-1)">← Back</button>
+        <span class="step-indicator">8 / 8</span>
+        <button class="btn btn-primary" id="submit-btn" onclick="submitForm()">Submit ✓</button>
+      </div>
+    </div>
+
+    <!-- COMPLETE -->
+    <div class="complete" id="complete">
+      <div class="complete-badge">Intake complete</div>
+      <h1>You're all set.</h1>
+      <p>Your trader profile has been captured. Download the summary below — it contains your full configuration and is ready to be used to initialize your AI trading agent.</p>
+
+      <table class="summary-table" id="summary-table"></table>
+
+      <div class="dl-row">
+        <button class="btn btn-primary" onclick="downloadTxt()">Download .txt summary</button>
+        <button class="btn" onclick="downloadJson()">Download .json config</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const TOTAL = 8;
+  let current = 1;
+
+  function navigate(dir) {
+    document.getElementById('s' + current).classList.remove('active');
+    updateNav(current, 'done');
+    current += dir;
+    if (current < 1) current = 1;
+    document.getElementById('s' + current).classList.add('active');
+    updateNav(current, 'active');
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function submitForm() {
+    document.getElementById('s8').classList.remove('active');
+    updateNav(8, 'done');
+    document.getElementById('complete').classList.add('active');
+    document.querySelector('.sidebar-footer .progress-fill').style.width = '100%';
+    document.getElementById('prog-text').textContent = '8 of 8 complete';
+    document.getElementById('prog-pct').textContent = '100%';
+    buildSummary();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateNav(n, state) {
+    const items = document.querySelectorAll('#nav-list .nav-item');
+    items.forEach(item => {
+      if (parseInt(item.dataset.section) === n) {
+        item.classList.remove('active', 'done');
+        item.classList.add(state);
+      }
+    });
+  }
+
+  function updateProgress() {
+    const pct = Math.round(((current - 1) / TOTAL) * 100);
+    document.getElementById('prog-fill').style.width = pct + '%';
+    document.getElementById('prog-text').textContent = (current - 1) + ' of ' + TOTAL + ' complete';
+    document.getElementById('prog-pct').textContent = pct + '%';
+  }
+
+  // Chips
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => c.classList.toggle('selected'));
+  });
+
+  // Radio cards
+  document.querySelectorAll('.radio-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const group = card.closest('.radio-grid');
+      group.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+
+  function getSelected(id) {
+    const el = document.getElementById(id);
+    if (!el) return '—';
+    const sel = el.querySelectorAll('.chip.selected, .radio-card.selected');
+    return sel.length ? Array.from(sel).map(s => s.querySelector('.radio-main, .chip')?.textContent?.trim() || s.textContent.trim()).join(', ') : '—';
+  }
+
+  function getVal(id) {
+    const el = document.getElementById(id);
+    return el && el.value.trim() ? el.value.trim() : '—';
+  }
+
+  const SUMMARY_FIELDS = [
+    { label: 'Framework', fn: () => getSelected('methodology') },
+    { label: 'Entry setup', fn: () => getVal('entry-setup') },
+    { label: 'Timeframes', fn: () => getSelected('timeframes') },
+    { label: 'Invalidation', fn: () => getVal('invalidation') },
+    { label: 'Risk per trade', fn: () => getSelected('risk-per-trade') },
+    { label: 'Stop method', fn: () => getSelected('stop-method') },
+    { label: 'Exit method', fn: () => getSelected('exit-method') },
+    { label: 'Max loss limit', fn: () => getVal('max-loss') },
+    { label: 'Breakeven', fn: () => getSelected('breakeven') },
+    { label: 'Sessions', fn: () => getSelected('sessions') },
+    { label: 'Pairs', fn: () => getSelected('pairs') },
+    { label: 'Top pairs', fn: () => getVal('top-pairs') },
+    { label: 'Unavailable', fn: () => getVal('unavailable') },
+    { label: 'Platform', fn: () => getSelected('platform') },
+    { label: 'API access', fn: () => getSelected('api-access') },
+    { label: 'Agent mode', fn: () => getSelected('agent-mode') },
+    { label: 'Prop firm', fn: () => getSelected('prop-firm') },
+    { label: 'Prop rules', fn: () => getVal('prop-rules') },
+    { label: 'Journal status', fn: () => getSelected('journal-status') },
+    { label: 'Journal tool', fn: () => getSelected('journal-tool') },
+    { label: 'Auto-capture', fn: () => getSelected('capture-data') },
+    { label: 'Perf metric', fn: () => getVal('perf-metric') },
+    { label: 'Alert channel', fn: () => getSelected('alert-channel') },
+    { label: 'Alert threshold', fn: () => getSelected('alert-threshold') },
+    { label: 'Alert verbosity', fn: () => getSelected('alert-verbosity') },
+    { label: 'In-trade alerts', fn: () => getSelected('intra-alerts') },
+    { label: 'Fundamentals', fn: () => getSelected('fundamentals') },
+    { label: 'Macro inputs', fn: () => getSelected('macro-inputs') },
+    { label: 'News handling', fn: () => getSelected('news-block') },
+    { label: 'Max trades/day', fn: () => getVal('max-trades') },
+    { label: 'Overtrade pattern', fn: () => getVal('overtrade') },
+    { label: 'Deviation flag', fn: () => getSelected('deviation') },
+    { label: 'Setup grades', fn: () => getVal('setup-grades') },
+    { label: 'Other notes', fn: () => getVal('other-notes') },
+  ];
+
+  function buildSummary() {
+    const table = document.getElementById('summary-table');
+    table.innerHTML = SUMMARY_FIELDS.map(f => {
+      const val = f.fn();
+      if (val === '—') return '';
+      return `<tr><td>${f.label}</td><td>${val}</td></tr>`;
+    }).join('');
+  }
+
+  function downloadTxt() {
+    const lines = [
+      'AI FOREX AGENT — TRADER INTAKE SUMMARY',
+      '========================================',
+      'Generated: ' + new Date().toLocaleString(),
+      '',
+    ];
+    SUMMARY_FIELDS.forEach(f => {
+      lines.push(f.label.toUpperCase() + ':');
+      lines.push('  ' + f.fn());
+      lines.push('');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'trader-intake-summary.txt';
+    a.click();
+  }
+
+  function downloadJson() {
+    const data = {};
+    SUMMARY_FIELDS.forEach(f => {
+      data[f.label.toLowerCase().replace(/[\s\/]+/g, '_')] = f.fn();
+    });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'trader-intake-config.json';
+    a.click();
+  }
+</script>
+</body>
+</html>
