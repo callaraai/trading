@@ -87,6 +87,53 @@ EMA crossover + TDI (Traders Dynamic Index) confirmation system on 1H/4H. Rules-
 
 ---
 
+## Trading Journal App (Session 2 — 2026-03-29)
+
+A dedicated web app for Ben to log and review his trades. Separate from the AI agent work — this is a manual journaling tool first, agent integration later.
+
+### What's Built
+
+**Backend:** FastAPI + SQLite (`journal/`)
+- `database.py` — SQLite at `journal/data/trades.db`
+- `models.py` — `Trade` SQLAlchemy model with all fields
+- `main.py` — REST API + page routes
+
+**Frontend:** 3 HTML pages in `journal/static/`
+- `dashboard.html` — equity curve (SVG), 5 stat cards, grade breakdown, recent trades
+- `log.html` — 5-step form (setup → checklist → grade/entry → outcome → notes)
+- `history.html` — filterable/sortable full trade table, expandable rows, CSV export
+- `demo.html` — fully self-contained static preview with 15 sample trades baked in (no server needed — send as file attachment)
+
+### Running Locally
+```bash
+cd /Users/LeJack/Documents/trading
+source .venv/bin/activate
+uvicorn journal.main:app --reload --port 8001
+```
+
+Venv lives at `/Users/LeJack/Documents/trading/.venv`. Must run from the `trading/` directory (not `trading/journal/`) due to relative imports.
+
+### Key Design Decisions
+
+**3-state rule toggles (Met / Bent / Not Met)** — captures Ben's subjectivity. He bends rules sometimes; this records exactly which ones and when, so patterns can be found later.
+
+**R auto-calculation** — SL pips input auto-populates 1R, lock-in (SL÷3 rounded up), 2R, 3R targets. Removes mental math during logging.
+
+**Direction-aware labels** — checklist labels update when Long/Short is toggled (e.g. "below 13 EMA" vs "above 13 EMA").
+
+**Equity curve** — pure SVG, no external chart libraries. Zero dependencies beyond FastAPI.
+
+### Deployment Plan (Not Yet Done)
+- Register `benstrading.com` at Cloudflare Registrar
+- Spin up IONOS VPS (Ubuntu 22.04, cheapest tier ~$2–4/mo)
+- systemd service + nginx reverse proxy + Cloudflare DNS
+- Push updates via git pull on VPS — Jack deploys, Ben just uses the URL
+
+### Trade Data Model
+All rule fields stored as `"met"` / `"bent"` / `"not_met"` strings. Boolean fields (shark_fin, dribble) stored as `Boolean`. Result R auto-calculated from `result_pips / stop_loss_pips` on create/update.
+
+---
+
 ## Vision & Roadmap
 
 1. **Phase 1 (done):** Intake form — captures trader's full ruleset
