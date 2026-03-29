@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trading Journal — Log Trade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0a; --surface: #111; --surface2: #181818;
+    --border: rgba(255,255,255,0.08); --border-active: rgba(255,255,255,0.3);
+    --text: #f0ede8; --text-muted: rgba(240,237,232,0.45); --text-dim: rgba(240,237,232,0.25);
+    --accent: #c8f064; --red: #f06464; --amber: #f0c864;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif; --display: 'Syne', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px; pointer-events: none; z-index: 0;
+  }
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,10,0.9); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem; height: 56px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+  .brand-mark svg { width: 14px; height: 14px; }
+  .brand-name { font-family: var(--display); font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-link { padding: 6px 14px; border-radius: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; transition: all 0.15s; }
+  .nav-link:hover { background: var(--surface2); color: var(--text); }
+  .nav-link.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border-active); }
+  .nav-cta { padding: 7px 18px; background: var(--accent); color: #0a0a0a; border-radius: 7px; font-family: var(--display); font-size: 13px; font-weight: 700; text-decoration: none; }
+
+  /* LAYOUT */
+  .layout { position: relative; z-index: 1; display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 56px); }
+
+  /* SIDEBAR */
+  .sidebar { border-right: 1px solid var(--border); padding: 2rem 1.5rem; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+  .step-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .step-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 7px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+  .step-item:hover { background: var(--surface2); }
+  .step-item.active { background: var(--surface2); border-color: var(--border-active); }
+  .step-item.done .step-num { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: var(--text-muted); flex-shrink: 0; transition: all 0.2s; }
+  .step-item.active .step-num { border-color: var(--text); color: var(--text); }
+  .step-label { font-size: 13px; color: var(--text-muted); transition: color 0.2s; }
+  .step-item.active .step-label, .step-item.done .step-label { color: var(--text); }
+  .sidebar-footer { margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+  .prog-label { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .prog-track { height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; width: 0%; }
+
+  /* MAIN CONTENT */
+  .content { padding: 2.5rem 3rem; max-width: 680px; }
+  .section { display: none; animation: fadeUp 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .section-eyebrow { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .section-title { font-family: var(--display); font-size: 26px; font-weight: 700; margin-bottom: 0.5rem; }
+  .section-desc { font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-bottom: 2rem; }
+
+  /* FORM */
+  .q-group { margin-bottom: 1.75rem; }
+  .q-label { font-family: var(--display); font-size: 14px; font-weight: 600; display: block; margin-bottom: 3px; }
+  .q-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; font-family: var(--mono); line-height: 1.5; }
+  .q-input, .q-textarea, .q-select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: var(--sans); font-size: 14px; padding: 10px 12px; outline: none;
+    transition: border-color 0.2s; line-height: 1.6; appearance: none;
+  }
+  .q-input:focus, .q-textarea:focus, .q-select:focus { border-color: var(--border-active); }
+  .q-input::placeholder, .q-textarea::placeholder { color: var(--text-dim); }
+  .q-textarea { resize: vertical; min-height: 80px; }
+  .q-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* DIRECTION TOGGLE */
+  .dir-toggle { display: flex; gap: 8px; }
+  .dir-btn { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-muted); font-family: var(--display); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .dir-btn[data-val="long"].active { background: rgba(200,240,100,0.12); border-color: var(--accent); color: var(--accent); }
+  .dir-btn[data-val="short"].active { background: rgba(240,100,100,0.12); border-color: var(--red); color: var(--red); }
+
+  /* CHIP */
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 6px 13px; border: 1px solid var(--border); border-radius: 100px; font-size: 13px; cursor: pointer; transition: all 0.15s; color: var(--text-muted); background: var(--surface); user-select: none; font-family: var(--sans); }
+  .chip:hover { border-color: var(--border-active); color: var(--text); }
+  .chip.selected { background: var(--accent); border-color: var(--accent); color: #0a0a0a; font-weight: 500; }
+
+  /* RULE ROW — 3-state toggle */
+  .rule-list { display: flex; flex-direction: column; gap: 8px; }
+  .rule-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; transition: border-color 0.15s; }
+  .rule-row.state-met { border-color: rgba(200,240,100,0.3); }
+  .rule-row.state-bent { border-color: rgba(240,200,100,0.3); }
+  .rule-row.state-not_met { border-color: rgba(240,100,100,0.3); }
+  .rule-name { font-size: 13px; flex: 1; }
+  .rule-pip-input { width: 80px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 4px 8px; outline: none; }
+  .rule-pip-input:focus { border-color: var(--border-active); }
+  .three-state { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .three-btn { padding: 5px 10px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: var(--surface2); color: var(--text-dim); border: none; transition: all 0.15s; letter-spacing: 0.05em; }
+  .three-btn:hover { color: var(--text); }
+  .three-btn.active-met { background: rgba(200,240,100,0.2); color: var(--accent); }
+  .three-btn.active-bent { background: rgba(240,200,100,0.2); color: var(--amber); }
+  .three-btn.active-not_met { background: rgba(240,100,100,0.2); color: var(--red); }
+
+  /* BOOL TOGGLE */
+  .bool-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .bool-name { font-size: 13px; }
+  .bool-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .bool-btn { padding: 5px 12px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: var(--surface2); color: var(--text-dim); border: none; transition: all 0.15s; }
+  .bool-btn.active-yes { background: rgba(240,100,100,0.2); color: var(--red); }
+  .bool-btn.active-no { background: rgba(200,240,100,0.2); color: var(--accent); }
+
+  /* SCENARIO CARDS */
+  .scenario-grid { display: flex; flex-direction: column; gap: 8px; }
+  .scenario-card { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: var(--surface); user-select: none; }
+  .scenario-card:hover { border-color: var(--border-active); }
+  .scenario-card.selected { border-color: var(--accent); background: rgba(200,240,100,0.05); }
+  .scenario-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border-active); flex-shrink: 0; margin-top: 1px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .scenario-card.selected .scenario-dot { border-color: var(--accent); }
+  .scenario-card.selected .scenario-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: block; }
+  .scenario-main { font-size: 13px; color: var(--text); }
+  .scenario-sub { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+
+  /* GRADE CARDS */
+  .grade-grid { display: flex; gap: 10px; }
+  .grade-card { flex: 1; padding: 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; background: var(--surface); transition: all 0.15s; user-select: none; }
+  .grade-card:hover { border-color: var(--border-active); }
+  .grade-card.selected-A { border-color: var(--accent); background: rgba(200,240,100,0.08); }
+  .grade-card.selected-B { border-color: var(--amber); background: rgba(240,200,100,0.08); }
+  .grade-card.selected-C { border-color: rgba(200,200,200,0.4); background: rgba(200,200,200,0.05); }
+  .grade-letter { font-family: var(--display); font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .grade-card.selected-A .grade-letter { color: var(--accent); }
+  .grade-card.selected-B .grade-letter { color: var(--amber); }
+  .grade-card.selected-C .grade-letter { color: var(--text-muted); }
+  .grade-desc { font-size: 11px; color: var(--text-muted); font-family: var(--mono); line-height: 1.4; }
+
+  /* NAV BUTTONS */
+  .nav-buttons { display: flex; align-items: center; justify-content: space-between; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+  .btn { font-family: var(--display); font-size: 14px; font-weight: 600; padding: 10px 22px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); background: transparent; color: var(--text-muted); letter-spacing: 0.02em; }
+  .btn:hover:not(:disabled) { border-color: var(--border-active); color: var(--text); }
+  .btn:disabled { opacity: 0.2; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+  .btn-primary:hover:not(:disabled) { background: #d9ff70; border-color: #d9ff70; color: #0a0a0a; }
+  .step-ind { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+
+  /* SUCCESS */
+  .success-screen { display: none; text-align: center; padding: 3rem 0; animation: fadeUp 0.4s ease; }
+  .success-screen.active { display: block; }
+  .success-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; background: rgba(200,240,100,0.1); border: 1px solid rgba(200,240,100,0.3); border-radius: 100px; font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 1.5rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  .success-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .content { padding: 1.5rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="brand">
+    <div class="brand-mark"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2L14 5.5V10.5L8 14L2 10.5V5.5L8 2Z" fill="#0a0a0a"/></svg></div>
+    <span class="brand-name">JOURNAL</span>
+  </a>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Dashboard</a>
+    <a href="/history" class="nav-link">History</a>
+  </div>
+  <a href="/log" class="nav-cta active" style="pointer-events:none">+ Log Trade</a>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <ul class="step-list" id="step-list">
+      <li class="step-item active" data-step="1"><span class="step-num">1</span><span class="step-label">Trade info</span></li>
+      <li class="step-item" data-step="2"><span class="step-num">2</span><span class="step-label">Setup checklist</span></li>
+      <li class="step-item" data-step="3"><span class="step-num">3</span><span class="step-label">Entry details</span></li>
+      <li class="step-item" data-step="4"><span class="step-num">4</span><span class="step-label">Outcome</span></li>
+      <li class="step-item" data-step="5"><span class="step-num">5</span><span class="step-label">Notes</span></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="prog-label"><span id="prog-text">0 of 5</span><span id="prog-pct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- S1: TRADE INFO -->
+    <div class="section active" id="s1">
+      <div class="section-eyebrow">Step 01 / 05</div>
+      <h2 class="section-title">Trade info</h2>
+      <p class="section-desc">Basic details about this trade.</p>
+
+      <div class="q-group">
+        <label class="q-label">Direction</label>
+        <div class="dir-toggle">
+          <div class="dir-btn" data-val="long" onclick="setDir('long')">↑ Long</div>
+          <div class="dir-btn" data-val="short" onclick="setDir('short')">↓ Short</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <div class="q-input-row">
+          <div>
+            <label class="q-label">Date</label>
+            <input class="q-input" type="date" id="trade-date" />
+          </div>
+          <div>
+            <label class="q-label">Time (JST)</label>
+            <input class="q-input" type="time" id="trade-time" />
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <div class="q-input-row">
+          <div>
+            <label class="q-label">Pair</label>
+            <select class="q-select" id="trade-pair">
+              <option value="GBPAUD">GBP/AUD</option>
+              <option value="GBPUSD">GBP/USD</option>
+              <option value="EURUSD">EUR/USD</option>
+              <option value="USDJPY">USD/JPY</option>
+              <option value="GBPJPY">GBP/JPY</option>
+              <option value="EURNZD">EUR/NZD</option>
+              <option value="GBPCAD">GBP/CAD</option>
+              <option value="GBPNZD">GBP/NZD</option>
+              <option value="AUDUSD">AUD/USD</option>
+              <option value="USDCAD">USD/CAD</option>
+            </select>
+          </div>
+          <div>
+            <label class="q-label">Timeframe</label>
+            <select class="q-select" id="trade-tf">
+              <option value="15m">15M</option>
+              <option value="1h">1H</option>
+              <option value="4h">4H</option>
+              <option value="5m">5M</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" disabled>← Back</button>
+        <span class="step-ind">1 / 5</span>
+        <button class="btn btn-primary" onclick="go(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S2: SETUP CHECKLIST -->
+    <div class="section" id="s2">
+      <div class="section-eyebrow">Step 02 / 05</div>
+      <h2 class="section-title">Setup checklist</h2>
+      <p class="section-desc">Rate each rule. <span style="color:var(--accent)">Met</span> = clean. <span style="color:var(--amber)">Bent</span> = you deviated but still took it. <span style="color:var(--red)">Not met</span> = rule was not present.</p>
+
+      <div class="q-group">
+        <label class="q-label">Price action rules</label>
+        <div class="rule-list">
+          <div class="rule-row" id="row-ema_cross">
+            <span class="rule-name">13 EMA crossed <span id="cross-dir-label">below</span> 50 EMA</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('ema_cross','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('ema_cross','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('ema_cross','not_met',this)">✗</button>
+            </div>
+          </div>
+
+          <div class="rule-row" id="row-pullback">
+            <span class="rule-name">Pullback ≥ 25 pips to 50 EMA</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input class="rule-pip-input" type="number" id="pullback-pips" placeholder="pips" min="0" step="0.1" />
+              <div class="three-state">
+                <button class="three-btn" onclick="setRule('pullback_valid','met',this)">MET</button>
+                <button class="three-btn" onclick="setRule('pullback_valid','bent',this)">BENT</button>
+                <button class="three-btn" onclick="setRule('pullback_valid','not_met',this)">✗</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rule-row" id="row-touch">
+            <span class="rule-name">50 EMA touches</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <select class="q-select" id="touch-count" style="width:60px;padding:5px 8px;font-size:12px">
+                <option value="1">1×</option>
+                <option value="2" selected>2×</option>
+                <option value="3">3×</option>
+              </select>
+              <div class="three-state">
+                <button class="three-btn" onclick="setRule('touch_count_valid','met',this)">MET</button>
+                <button class="three-btn" onclick="setRule('touch_count_valid','bent',this)">BENT</button>
+                <button class="three-btn" onclick="setRule('touch_count_valid','not_met',this)">✗</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rule-row" id="row-shift-size">
+            <span class="rule-name">Shift candle ≥ 25 pips</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input class="rule-pip-input" type="number" id="shift-pips" placeholder="pips" min="0" step="0.1" />
+              <div class="three-state">
+                <button class="three-btn" onclick="setRule('shift_candle_size','met',this)">MET</button>
+                <button class="three-btn" onclick="setRule('shift_candle_size','bent',this)">BENT</button>
+                <button class="three-btn" onclick="setRule('shift_candle_size','not_met',this)">✗</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rule-row" id="row-shift-close">
+            <span class="rule-name">Shift candle closes correct side of 13 EMA</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('shift_candle_close','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('shift_candle_close','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('shift_candle_close','not_met',this)">✗</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">TDI rules</label>
+        <div class="rule-list">
+          <div class="rule-row" id="row-tdi-cross">
+            <span class="rule-name">Black line (slow MA) crossed <span id="tdi-cross-label">below</span> red line (fast MA)</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('tdi_cross','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('tdi_cross','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('tdi_cross','not_met',this)">✗</button>
+            </div>
+          </div>
+          <div class="rule-row" id="row-tdi-black">
+            <span class="rule-name">Black line tip <span id="tdi-black-label">below</span> 50 level</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('tdi_black_side','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('tdi_black_side','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('tdi_black_side','not_met',this)">✗</button>
+            </div>
+          </div>
+          <div class="rule-row" id="row-tdi-yellow">
+            <span class="rule-name">Yellow baseline <span id="tdi-yellow-label">below</span> 50 level</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('tdi_yellow_side','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('tdi_yellow_side','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('tdi_yellow_side','not_met',this)">✗</button>
+            </div>
+          </div>
+          <div class="rule-row" id="row-tdi-trapped">
+            <span class="rule-name">Black line trapped in 48–52 zone first</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('tdi_trapped','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('tdi_trapped','bent',this)">BENT</button>
+              <button class="three-btn" onclick="setRule('tdi_trapped','not_met',this)">✗</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Disqualifiers</label>
+        <div class="q-hint">Flag if present — shark fin and dribble are negative signals</div>
+        <div class="rule-list">
+          <div class="bool-row" id="row-sharkfin">
+            <span class="bool-name">Shark fin present? (black line outside TDI Bollinger Bands)</span>
+            <div class="bool-toggle">
+              <button class="bool-btn" onclick="setBool('shark_fin', true, this)">YES</button>
+              <button class="bool-btn active-no" onclick="setBool('shark_fin', false, this)">NO</button>
+            </div>
+          </div>
+          <div class="bool-row" id="row-dribble">
+            <span class="bool-name">Dribble trade? (price riding sideways along 50 EMA)</span>
+            <div class="bool-toggle">
+              <button class="bool-btn" onclick="setBool('dribble', true, this)">YES</button>
+              <button class="bool-btn active-no" onclick="setBool('dribble', false, this)">NO</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Conditions</label>
+        <div class="rule-list">
+          <div class="rule-row" id="row-news">
+            <span class="rule-name">No high-impact news ±30 min</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('news_clear','met',this)">CLEAR</button>
+              <button class="three-btn" onclick="setRule('news_clear','bent',this)">NEAR</button>
+              <button class="three-btn" onclick="setRule('news_clear','not_met',this)">NEWS</button>
+            </div>
+          </div>
+          <div class="rule-row" id="row-session">
+            <span class="rule-name">Within trading window (9 AM–midnight JST)</span>
+            <div class="three-state">
+              <button class="three-btn" onclick="setRule('session_valid','met',this)">MET</button>
+              <button class="three-btn" onclick="setRule('session_valid','bent',this)">OUTSIDE</button>
+              <button class="three-btn" onclick="setRule('session_valid','not_met',this)">✗</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="go(-1)">← Back</button>
+        <span class="step-ind">2 / 5</span>
+        <button class="btn btn-primary" onclick="go(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S3: ENTRY DETAILS -->
+    <div class="section" id="s3">
+      <div class="section-eyebrow">Step 03 / 05</div>
+      <h2 class="section-title">Entry details</h2>
+      <p class="section-desc">Setup quality grade and entry parameters.</p>
+
+      <div class="q-group">
+        <label class="q-label">Setup grade</label>
+        <div class="q-hint">A = all rules met cleanly. B = 1-2 rules bent but strong conviction. C = multiple bends, borderline.</div>
+        <div class="grade-grid">
+          <div class="grade-card" onclick="setGrade('A')">
+            <div class="grade-letter">A</div>
+            <div class="grade-desc">All rules met<br>clean setup</div>
+          </div>
+          <div class="grade-card" onclick="setGrade('B')">
+            <div class="grade-letter">B</div>
+            <div class="grade-desc">1–2 bends<br>good conviction</div>
+          </div>
+          <div class="grade-card" onclick="setGrade('C')">
+            <div class="grade-letter">C</div>
+            <div class="grade-desc">Multiple bends<br>borderline</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <div class="q-input-row">
+          <div>
+            <label class="q-label">Entry price</label>
+            <input class="q-input" type="number" id="entry-price" placeholder="e.g. 1.90384" step="0.00001" />
+          </div>
+          <div>
+            <label class="q-label">Stop loss (pips)</label>
+            <input class="q-input" type="number" id="sl-pips" placeholder="e.g. 22" min="0" step="0.1" oninput="calcLockIn()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Risk %</label>
+        <div class="chip-grid" id="risk-chips">
+          <div class="chip selected" data-val="2" onclick="setChip(this,'risk-chips')">2% (standard)</div>
+          <div class="chip" data-val="1" onclick="setChip(this,'risk-chips')">1%</div>
+          <div class="chip" data-val="0.5" onclick="setChip(this,'risk-chips')">0.5%</div>
+        </div>
+      </div>
+
+      <div class="q-group" id="lockin-preview" style="display:none">
+        <label class="q-label">Auto-calculated levels</label>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:2;color:var(--text-muted)">
+          <div>1:1 target → <span id="calc-1r" style="color:var(--text)">—</span> pips</div>
+          <div>Lock in at 1:1 → <span id="calc-lockin" style="color:var(--accent)">—</span> pips</div>
+          <div>1:2 minimum → <span id="calc-2r" style="color:var(--text)">—</span> pips</div>
+          <div>1:3 trail trigger → <span id="calc-3r" style="color:var(--text)">—</span> pips</div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="go(-1)">← Back</button>
+        <span class="step-ind">3 / 5</span>
+        <button class="btn btn-primary" onclick="go(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S4: OUTCOME -->
+    <div class="section" id="s4">
+      <div class="section-eyebrow">Step 04 / 05</div>
+      <h2 class="section-title">Outcome</h2>
+      <p class="section-desc">What happened after entry?</p>
+
+      <div class="q-group">
+        <label class="q-label">Scenario</label>
+        <div class="q-hint">Which of Ben's 4 scenarios played out?</div>
+        <div class="scenario-grid">
+          <div class="scenario-card" onclick="setScenario(1, this)">
+            <div class="scenario-dot"></div>
+            <div><div class="scenario-main">Scenario 1 — Hit 1:1, locked in, rode to target</div><div class="scenario-sub">Best case. Locked stop to +0.3R at 1:1, targeted 1:2+</div></div>
+          </div>
+          <div class="scenario-card" onclick="setScenario(2, this)">
+            <div class="scenario-dot"></div>
+            <div><div class="scenario-main">Scenario 2 — Hard stop hit</div><div class="scenario-sub">Immediate reversal, full 2% loss</div></div>
+          </div>
+          <div class="scenario-card" onclick="setScenario(3, this)">
+            <div class="scenario-dot"></div>
+            <div><div class="scenario-main">Scenario 3 — Scratch (close past 13 EMA)</div><div class="scenario-sub">Candle closed wrong side of 13 EMA — exited immediately</div></div>
+          </div>
+          <div class="scenario-card" onclick="setScenario(4, this)">
+            <div class="scenario-dot"></div>
+            <div><div class="scenario-main">Scenario 4 — Other</div><div class="scenario-sub">Describe in notes</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">Exit type</label>
+        <div class="chip-grid" id="exit-chips">
+          <div class="chip" data-val="scratch" onclick="setChip(this,'exit-chips')">Scratch</div>
+          <div class="chip" data-val="stop_hit" onclick="setChip(this,'exit-chips')">Stop hit</div>
+          <div class="chip" data-val="1r_locked" onclick="setChip(this,'exit-chips')">1R locked out</div>
+          <div class="chip" data-val="trailed" onclick="setChip(this,'exit-chips')">Trailed out</div>
+        </div>
+      </div>
+
+      <div class="q-group">
+        <div class="q-input-row">
+          <div>
+            <label class="q-label">Result (pips)</label>
+            <div class="q-hint">Negative for a loss</div>
+            <input class="q-input" type="number" id="result-pips" placeholder="e.g. 60 or -3" step="0.1" oninput="calcR()" />
+          </div>
+          <div>
+            <label class="q-label">Result (R) <span style="color:var(--text-dim);font-size:11px">auto-calculated</span></label>
+            <input class="q-input" type="number" id="result-r" placeholder="auto" step="0.01" style="color:var(--accent)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="go(-1)">← Back</button>
+        <span class="step-ind">4 / 5</span>
+        <button class="btn btn-primary" onclick="go(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- S5: NOTES -->
+    <div class="section" id="s5">
+      <div class="section-eyebrow">Step 05 / 05</div>
+      <h2 class="section-title">Notes</h2>
+      <p class="section-desc">Capture any rule bends, observations, or things to remember.</p>
+
+      <div class="q-group">
+        <label class="q-label">Rules bent — explain why</label>
+        <div class="q-hint">If you marked any rule as "bent", explain your reasoning here.</div>
+        <textarea class="q-textarea" id="bent-notes" placeholder="e.g. Single wick touch instead of 2, but shift candle was 32 pips and very strong. Felt confident in the momentum..."></textarea>
+      </div>
+
+      <div class="q-group">
+        <label class="q-label">General notes</label>
+        <textarea class="q-textarea" id="general-notes" placeholder="Any other observations — market conditions, what you noticed, what you'd do differently..."></textarea>
+      </div>
+
+      <div class="nav-buttons">
+        <button class="btn" onclick="go(-1)">← Back</button>
+        <span class="step-ind">5 / 5</span>
+        <button class="btn btn-primary" id="submit-btn" onclick="submitTrade()">Save Trade ✓</button>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="success-screen" id="success">
+      <div class="success-badge">Trade logged</div>
+      <h1 style="font-family:var(--display);font-size:32px;font-weight:700;margin-bottom:1rem">Done.</h1>
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:2rem;max-width:360px;margin-left:auto;margin-right:auto;line-height:1.7">Your trade has been saved to the journal.</p>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <a href="/log" class="btn btn-primary" style="text-decoration:none;display:inline-block">+ Log Another</a>
+        <a href="/" class="btn" style="text-decoration:none;display:inline-block">Dashboard →</a>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 5;
+
+// State
+const state = {
+  direction: null,
+  rules: {},
+  bools: { shark_fin: false, dribble: false },
+  grade: null,
+  scenario: null,
+  exitChip: null,
+  riskChip: '2',
+};
+
+// Init defaults
+window.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('trade-date').value = today;
+  const now = new Date();
+  document.getElementById('trade-time').value = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+});
+
+function setDir(d) {
+  state.direction = d;
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.dir-btn[data-val="${d}"]`).classList.add('active');
+  // Update labels based on direction
+  const isShort = d === 'short';
+  document.getElementById('cross-dir-label').textContent = isShort ? 'below' : 'above';
+  document.getElementById('tdi-cross-label').textContent = isShort ? 'below' : 'above';
+  document.getElementById('tdi-black-label').textContent = isShort ? 'below' : 'above';
+  document.getElementById('tdi-yellow-label').textContent = isShort ? 'below' : 'above';
+}
+
+function setRule(key, val, btn) {
+  state.rules[key] = val;
+  const row = btn.closest('.rule-row');
+  row.className = `rule-row state-${val}`;
+  btn.parentElement.querySelectorAll('.three-btn').forEach(b => {
+    b.className = 'three-btn';
+  });
+  btn.classList.add(`active-${val}`);
+}
+
+function setBool(key, val, btn) {
+  state.bools[key] = val;
+  const toggle = btn.parentElement;
+  toggle.querySelectorAll('.bool-btn').forEach(b => b.className = 'bool-btn');
+  btn.classList.add(val ? 'active-yes' : 'active-no');
+}
+
+function setGrade(g) {
+  state.grade = g;
+  document.querySelectorAll('.grade-card').forEach(c => {
+    c.className = 'grade-card';
+  });
+  document.querySelector(`.grade-card:nth-child(${['A','B','C'].indexOf(g)+1})`).classList.add(`selected-${g}`);
+}
+
+function setScenario(n, card) {
+  state.scenario = n;
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  // Auto-fill exit type based on scenario
+  if (n === 2) setChipByVal('exit-chips', 'stop_hit');
+  if (n === 3) setChipByVal('exit-chips', 'scratch');
+}
+
+function setChip(el, groupId) {
+  document.querySelectorAll(`#${groupId} .chip`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (groupId === 'risk-chips') state.riskChip = el.dataset.val;
+  if (groupId === 'exit-chips') state.exitChip = el.dataset.val;
+}
+
+function setChipByVal(groupId, val) {
+  const chip = document.querySelector(`#${groupId} .chip[data-val="${val}"]`);
+  if (chip) setChip(chip, groupId);
+}
+
+function calcLockIn() {
+  const sl = parseFloat(document.getElementById('sl-pips').value);
+  if (!sl) { document.getElementById('lockin-preview').style.display = 'none'; return; }
+  document.getElementById('lockin-preview').style.display = 'block';
+  const lockIn = Math.ceil(sl / 3);
+  document.getElementById('calc-1r').textContent = sl.toFixed(1);
+  document.getElementById('calc-lockin').textContent = lockIn;
+  document.getElementById('calc-2r').textContent = (sl * 2).toFixed(1);
+  document.getElementById('calc-3r').textContent = (sl * 3).toFixed(1);
+  calcR();
+}
+
+function calcR() {
+  const sl = parseFloat(document.getElementById('sl-pips').value);
+  const pips = parseFloat(document.getElementById('result-pips').value);
+  if (sl && pips !== undefined && !isNaN(pips)) {
+    const r = (pips / sl).toFixed(2);
+    document.getElementById('result-r').value = r;
+  }
+}
+
+function updateProgress() {
+  const pct = Math.round((currentStep / totalSteps) * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = `${currentStep} of ${totalSteps}`;
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.querySelectorAll('.step-item').forEach(item => {
+    const s = parseInt(item.dataset.step);
+    item.classList.remove('active', 'done');
+    if (s === currentStep) item.classList.add('active');
+    if (s < currentStep) item.classList.add('done');
+  });
+}
+
+function go(dir) {
+  const next = currentStep + dir;
+  if (next < 1 || next > totalSteps) return;
+  document.getElementById(`s${currentStep}`).classList.remove('active');
+  currentStep = next;
+  document.getElementById(`s${currentStep}`).classList.add('active');
+  updateProgress();
+  window.scrollTo(0, 0);
+}
+
+async function submitTrade() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const payload = {
+    pair: document.getElementById('trade-pair').value,
+    trade_date: document.getElementById('trade-date').value,
+    trade_time: document.getElementById('trade-time').value,
+    direction: state.direction || 'short',
+    timeframe: document.getElementById('trade-tf').value,
+
+    rule_ema_cross: state.rules.ema_cross || 'met',
+    rule_pullback_pips: parseFloat(document.getElementById('pullback-pips').value) || null,
+    rule_pullback_valid: state.rules.pullback_valid || 'met',
+    rule_touch_count: parseInt(document.getElementById('touch-count').value) || 2,
+    rule_shift_candle_pips: parseFloat(document.getElementById('shift-pips').value) || null,
+    rule_shift_candle_size: state.rules.shift_candle_size || 'met',
+    rule_shift_candle_close: state.rules.shift_candle_close || 'met',
+    rule_tdi_cross: state.rules.tdi_cross || 'met',
+    rule_tdi_black_side: state.rules.tdi_black_side || 'met',
+    rule_tdi_yellow_side: state.rules.tdi_yellow_side || 'met',
+    rule_tdi_trapped: state.rules.tdi_trapped || 'met',
+    rule_shark_fin: state.bools.shark_fin,
+    rule_dribble: state.bools.dribble,
+    rule_news_clear: state.rules.news_clear || 'met',
+    rule_session_valid: state.rules.session_valid || 'met',
+    rules_bent_notes: document.getElementById('bent-notes').value || null,
+
+    entry_price: parseFloat(document.getElementById('entry-price').value) || null,
+    stop_loss_pips: parseFloat(document.getElementById('sl-pips').value) || null,
+    risk_percent: parseFloat(state.riskChip) || 2.0,
+    grade: state.grade || 'B',
+
+    scenario: state.scenario || null,
+    exit_type: state.exitChip || null,
+    result_pips: parseFloat(document.getElementById('result-pips').value) || null,
+    result_r: parseFloat(document.getElementById('result-r').value) || null,
+
+    notes: document.getElementById('general-notes').value || null,
+  };
+
+  try {
+    const res = await fetch('/api/trades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    document.getElementById('s5').classList.remove('active');
+    document.getElementById('success').classList.add('active');
+    updateProgress();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Save Trade ✓';
+    alert('Error saving trade: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
